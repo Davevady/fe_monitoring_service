@@ -118,12 +118,12 @@
             </div>
         </div>
 
-        <!-- Log Volume Trend -->
+        <!-- Log Volume Trend Multi-Line -->
         <div class="w-full max-w-full px-3 my-6 lg:w-7/12 lg:flex-none">
             <div class="relative flex flex-col min-w-0 break-words bg-white border-0 shadow-xl rounded-2xl">
                 <div class="border-black/12.5 rounded-t-2xl border-b-0 border-solid p-6 pb-4">
                     <div class="flex items-center justify-between">
-                        <h6 class="mb-0 font-bold text-slate-700">📈 Log Volume Trend</h6>
+                        <h6 class="mb-0 font-bold text-slate-700">📈 Log Volume Trend by Level</h6>
                         <div class="flex gap-2">
                             <button v-for="period in ['24h', '7d', '30d']" :key="period"
                                 @click="selectedPeriod = period"
@@ -135,27 +135,139 @@
                     </div>
                 </div>
                 <div class="flex-auto p-6 pt-0">
+                    <!-- Legend -->
+                    <div class="w-full flex justify-center">
+                        <div class="chart-legend flex justify-between items-center w-1/2 mb-4">
+                            <div class="legend-item flex items-center gap-2 cursor-pointer transition-all hover:opacity-80"
+                                 :class="{ 'opacity-50': selectedLogLevel && !isLogLevelSelected('info') }"
+                                 @click="toggleLogLevel('info')">
+                                <div class="legend-dot w-3 h-3 rounded-full bg-green-500 transition-all"
+                                     :style="isLogLevelSelected('info') ? 'box-shadow: 0 0 0 2px #10b981, 0 0 0 4px #fff' : ''"></div>
+                                <span class="ml-2 legend-text text-sm text-slate-600 font-medium"
+                                      :class="{ 'text-green-600 font-bold': isLogLevelSelected('info') }">INFO</span>
+                            </div>
+                            <div class="legend-item flex items-center gap-2 cursor-pointer transition-all hover:opacity-80"
+                                 :class="{ 'opacity-50': selectedLogLevel && !isLogLevelSelected('warning') }"
+                                 @click="toggleLogLevel('warning')">
+                                <div class="legend-dot w-3 h-3 rounded-full bg-yellow-500 transition-all"
+                                     :style="isLogLevelSelected('warning') ? 'box-shadow: 0 0 0 2px #f59e0b, 0 0 0 4px #fff' : ''"></div>
+                                <span class="ml-2 legend-text text-sm text-slate-600 font-medium"
+                                      :class="{ 'text-yellow-600 font-bold': isLogLevelSelected('warning') }">WARNING</span>
+                            </div>
+                            <div class="legend-item flex items-center gap-2 cursor-pointer transition-all hover:opacity-80"
+                                 :class="{ 'opacity-50': selectedLogLevel && !isLogLevelSelected('error') }"
+                                 @click="toggleLogLevel('error')">
+                                <div class="legend-dot w-3 h-3 rounded-full bg-red-500 transition-all"
+                                     :style="isLogLevelSelected('error') ? 'box-shadow: 0 0 0 2px #ef4444, 0 0 0 4px #fff' : ''"></div>
+                                <span class="ml-2 legend-text text-sm text-slate-600 font-medium"
+                                      :class="{ 'text-red-600 font-bold': isLogLevelSelected('error') }">ERROR</span>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div class="relative w-full" style="height: 280px;">
                         <svg viewBox="0 0 800 280" class="w-full h-full">
+                            <!-- Grid lines -->
                             <line v-for="i in 6" :key="'h-' + i" :x1="0" :y1="i * 46.67" :x2="800" :y2="i * 46.67"
                                 stroke="#e2e8f0" stroke-width="1" />
-                            <line v-for="i in 12" :key="'v-' + i" :x1="i * 66.67" :y1="0" :x2="i * 66.67" :y2="280"
+                            <line v-for="i in chartLabels.length" :key="'v-' + i" :x1="i * (800 / (chartLabels.length - 1))" :y1="0" :x2="i * (800 / (chartLabels.length - 1))" :y2="280"
                                 stroke="#e2e8f0" stroke-width="1" />
-                            <polygon :points="chartAreaPoints" fill="url(#gradient)" opacity="0.2" />
-                            <polyline :points="chartLinePoints" fill="none" stroke="#5e72e4" stroke-width="3"
-                                stroke-linejoin="round" />
-                            <defs>
-                                <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                                    <stop offset="0%" style="stop-color:#5e72e4;stop-opacity:0.6" />
-                                    <stop offset="100%" style="stop-color:#5e72e4;stop-opacity:0" />
-                                </linearGradient>
-                            </defs>
-                            <circle v-for="(point, idx) in chartPoints" :key="idx" :cx="point.x" :cy="point.y" r="5"
-                                fill="#5e72e4" stroke="#fff" stroke-width="2" class="transition-all cursor-pointer" />
+                            
+                            <!-- Multi-line chart -->
+                            <polyline :points="infoLinePoints" fill="none" stroke="#10b981"
+                                :stroke-width="isLogLevelSelected('info') || !selectedLogLevel ? 3 : 1.5"
+                                :opacity="selectedLogLevel && !isLogLevelSelected('info') ? 0.25 : 1"
+                                stroke-linejoin="round" stroke-linecap="round" />
+                            <polyline :points="warningLinePoints" fill="none" stroke="#f59e0b"
+                                :stroke-width="isLogLevelSelected('warning') || !selectedLogLevel ? 3 : 1.5"
+                                :opacity="selectedLogLevel && !isLogLevelSelected('warning') ? 0.25 : 1"
+                                stroke-linejoin="round" stroke-linecap="round" />
+                            <polyline :points="errorLinePoints" fill="none" stroke="#ef4444"
+                                :stroke-width="isLogLevelSelected('error') || !selectedLogLevel ? 3 : 1.5"
+                                :opacity="selectedLogLevel && !isLogLevelSelected('error') ? 0.25 : 1"
+                                stroke-linejoin="round" stroke-linecap="round" />
+                            
+                            <!-- Data points with tooltips -->
+                            <circle v-for="(point, idx) in infoPoints" :key="'info-' + idx"
+                                v-show="isLogLevelVisible('info')"
+                                :cx="point.x" :cy="point.y" r="4"
+                                fill="#10b981" stroke="#fff" stroke-width="2" class="transition-all cursor-pointer hover:r-6"
+                                @mouseenter="showTooltip($event, 'INFO', currentChartData?.info?.[idx] ?? 0, chartLabels?.[idx] ?? '')"
+                                @mousemove="moveTooltip($event)"
+                                @mouseleave="hideTooltip" />
+                            <circle v-for="(point, idx) in warningPoints" :key="'warning-' + idx"
+                                v-show="isLogLevelVisible('warning')"
+                                :cx="point.x" :cy="point.y" r="4"
+                                fill="#f59e0b" stroke="#fff" stroke-width="2" class="transition-all cursor-pointer hover:r-6"
+                                @mouseenter="showTooltip($event, 'WARNING', currentChartData?.warning?.[idx] ?? 0, chartLabels?.[idx] ?? '')"
+                                @mousemove="moveTooltip($event)"
+                                @mouseleave="hideTooltip" />
+                            <circle v-for="(point, idx) in errorPoints" :key="'error-' + idx"
+                                v-show="isLogLevelVisible('error')"
+                                :cx="point.x" :cy="point.y" r="4"
+                                fill="#ef4444" stroke="#fff" stroke-width="2" class="transition-all cursor-pointer hover:r-6"
+                                @mouseenter="showTooltip($event, 'ERROR', currentChartData?.error?.[idx] ?? 0, chartLabels?.[idx] ?? '')"
+                                @mousemove="moveTooltip($event)"
+                                @mouseleave="hideTooltip" />
+                            
                         </svg>
+                        
+                        <!-- Tooltip - positioned outside SVG to avoid conflicts -->
+                        <div v-if="tooltip.visible && tooltip.source==='line'" 
+                             class="chart-tooltip absolute bg-slate-800 text-black text-xs rounded-lg px-3 py-2 shadow-xl border border-slate-700 pointer-events-none"
+                             :style="{ left: tooltip.x + 'px', top: tooltip.y + 'px', zIndex: 9999 }">
+                            <div class="tooltip-level font-semibold text-black">{{ tooltip.level }}</div>
+                            <div class="tooltip-time text-slate-300">{{ tooltip.time }}</div>
+                            <div class="tooltip-value text-slate-200">{{ tooltip.value.toLocaleString() }} logs</div>
+                        </div>
                     </div>
-                    <div class="flex justify-between mt-3 text-xs text-slate-500">
-                        <span v-for="(label, idx) in chartLabels" :key="idx">{{ label }}</span>
+                    
+                    <!-- Smart Time Labels -->
+                    <div class="chart-labels-container relative mt-3">
+                        <!-- Range indicator -->
+                        <div class="w-full flex justify-between items-center text-xs text-slate-400 font-medium">
+                            <!-- Left side -->
+                            <div class="chart-range-indicator">
+                                {{ getTimeRangeLabel() }}
+                            </div>
+
+                            <!-- Right side -->
+                            <div class="chart-indicators flex items-center gap-6">
+                                <div class="chart-hover-hint flex items-center mr-4">
+                                    <i class="fas fa-mouse-pointer mr-1"></i>
+                                    Hover untuk detail
+                                </div>
+                                <div class="chart-total-logs flex items-center">
+                                    <i class="fas fa-chart-line mr-1"></i>
+                                    {{ getTotalLogs() }} total logs
+                                </div>
+                            </div>
+                        </div>
+
+                        
+                        <!-- Dynamic labels based on period -->
+                        <div class="chart-labels flex justify-between text-xs text-slate-500" :data-period="selectedPeriod">
+                            <template v-if="selectedPeriod === '7d'">
+                                <!-- 7D: Show all labels -->
+                                <span v-for="(label, idx) in chartLabels" :key="idx" class="chart-label">{{ label }}</span>
+                            </template>
+                            
+                            <template v-else-if="selectedPeriod === '24h'">
+                                <!-- 24H: Show every 4th hour -->
+                                <span v-for="(label, idx) in getSmartLabels24H()" :key="idx" 
+                                      class="chart-label" :class="idx % 2 === 0 ? 'font-medium' : 'opacity-70'">
+                                    {{ label }}
+                                </span>
+                            </template>
+                            
+                            <template v-else-if="selectedPeriod === '30d'">
+                                <!-- 30D: Show every 5th day -->
+                                <span v-for="(label, idx) in getSmartLabels30D()" :key="idx"
+                                      class="chart-label" :class="idx % 2 === 0 ? 'font-medium' : 'opacity-70'">
+                                    {{ label }}
+                                </span>
+                            </template>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -222,7 +334,7 @@
                             </div>
 
                             <!-- Tooltip -->
-                            <div v-if="tooltip.visible"
+                            <div v-if="tooltip.visible && tooltip.source==='donut'"
                                 class="pointer-events-none absolute bg-white text-slate-700 text-xs px-2.5 py-1.5 rounded-md shadow-md border border-slate-200"
                                 :style="{ top: tooltip.y + 'px', left: tooltip.x + 'px' }">
                                 <span class="font-semibold mr-1">{{ tooltip.label }}:</span>
@@ -277,7 +389,7 @@
                             <tr v-for="(app, idx) in topApps" :key="idx" class="transition-all hover:bg-gray-50">
                                 <td class="p-2 px-6 align-middle border-b">
                                     <div class="flex items-center gap-3">
-                                        <div class="inline-flex items-center justify-center w-10 h-10 text-sm font-bold text-white rounded-lg"
+                                        <div class="inline-flex items-center justify-center w-10 h-10 text-sm font-bold text-white rounded-lg mr-2"
                                             :style="{ backgroundImage: app.color }">
                                             {{ app.name.charAt(0) }}
                                         </div>
@@ -332,6 +444,7 @@
                 </div>
                 <div class="flex-auto p-6 pt-0">
                     <div class="flex flex-col gap-3">
+                        <!-- Show violations if available -->
                         <div v-for="(violation, idx) in recentViolations" :key="idx"
                             class="mb-2 relative flex flex-col min-w-0 break-words border-0 shadow-sm rounded-2xl transition-all hover:shadow-md"
                             :style="{ borderLeft: `4px solid ${violation.color}` }">
@@ -355,44 +468,16 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- System Health Indicators -->
-        <div class="w-full max-w-full px-3 mb-6">
-            <div class="relative flex flex-col min-w-0 break-words bg-white border-0 shadow-xl rounded-2xl">
-                <div class="border-black/12.5 mb-0 rounded-t-2xl border-b-0 border-solid p-6 pb-4">
-                    <h6 class="mb-0 font-bold text-slate-700">💚 System Health Indicators</h6>
-                </div>
-                <div class="flex-auto p-6 pt-0">
-                    <div class="flex flex-wrap -mx-3">
-                        <div v-for="(indicator, idx) in healthIndicators" :key="idx"
-                            class="w-full max-w-full px-3 mb-6 sm:w-1/2 sm:flex-none xl:mb-0 xl:w-1/4">
-                            <div class="relative flex flex-col min-w-0 break-words border-0 shadow-sm rounded-2xl transition-all hover:shadow-md bg-white"
-                                :class="getHealthBorderClass(indicator.value)">
-                                <div class="p-4">
-                                    <div class="flex items-center justify-between mb-3">
-                                        <span class="text-2xl">{{ indicator.icon }}</span>
-                                        <span class="inline-block px-2 py-1 text-xs font-bold text-white rounded-lg"
-                                            :class="getHealthBadgeClass(indicator.value)">
-                                            {{ getHealthStatus(indicator.value) }}
-                                        </span>
-                                    </div>
-                                    <p class="mb-1 text-sm font-semibold text-slate-700">{{ indicator.name }}</p>
-                                    <div class="flex items-end justify-between mb-2">
-                                        <span class="text-2xl font-bold" :class="getHealthTextClass(indicator.value)">{{
-                                            indicator.value }}%</span>
-                                        <span class="text-xs text-slate-500">{{ indicator.description }}</span>
-                                    </div>
-                                    <div class="relative w-full rounded-full overflow-hidden"
-                                        style="height: 10px; background-color: #e5e7eb;">
-                                        <div class="h-full rounded-full transition-all duration-500"
-                                            :style="getProgressBarStyle(indicator.value)"></div>
-                                    </div>
-                                </div>
-                            </div>
+                        
+                        <!-- Show empty state message when no violations -->
+                        <div v-if="recentViolations.length === 0" 
+                             class="flex flex-col items-center justify-center py-8 text-center">
+                            <div class="text-4xl mb-3">✅</div>
+                            <h4 class="text-lg font-semibold text-slate-700 mb-2">Tidak Ada Pelanggaran</h4>
+                            <p class="text-sm text-slate-500 max-w-xs">
+                                Tidak ada log yang melanggar threshold selama 24 jam terakhir. 
+                                Sistem berjalan dengan baik!
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -572,8 +657,8 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { getDashboardOverview } from '../services/api'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { getDashboardOverview, getLogTrends, getAppPerformance } from '../services/api'
 
 export default {
     setup() {
@@ -659,12 +744,21 @@ export default {
             }
         }
 
-        // Simple tooltip state for donut segments
-        const tooltip = ref({ visible: false, x: 0, y: 0, label: '', value: 0 })
+        // Legend interaction state for line chart
+        const selectedLogLevel = ref(null) // null = show all
+        const toggleLogLevel = (level) => {
+            selectedLogLevel.value = selectedLogLevel.value === level ? null : level
+        }
+        const isLogLevelSelected = (level) => selectedLogLevel.value === level
+        const isLogLevelVisible = (level) => !selectedLogLevel.value || selectedLogLevel.value === level
+
+        // Enhanced tooltip state for multi-line chart
+        const tooltip = ref({ visible: false, x: 0, y: 0, level: '', time: '', value: 0, source: '' })
         const onEnterSegment = (segment, evt) => {
             tooltip.value.visible = true
             tooltip.value.label = segment.level
             tooltip.value.value = segment.count || 0
+            tooltip.value.source = 'donut'
             onMoveTooltip(evt)
         }
         const onMoveTooltip = (evt) => {
@@ -678,9 +772,73 @@ export default {
             tooltip.value.visible = false
         }
 
-        const chartData = ref([12450, 9320, 8745, 15230, 22340, 28450, 31250, 29870, 33450, 30120, 25890, 21340])
-        const chartLabels = ref(['00:00', '02:00', '04:00', '06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00'])
+        // Multi-line chart data (state) - diisi dari API
+        const multiLineChartData = ref({
+            '24h': { labels: [], info: [], warning: [], error: [] },
+            '7d': { labels: [], info: [], warning: [], error: [] },
+            '30d': { labels: [], info: [], warning: [], error: [] },
+        })
 
+        // Loader chart dari API
+        const loadLogTrends = async (range) => {
+            try {
+                const res = await getLogTrends(range)
+                const payload = res?.data || {}
+                const labels = payload.labels || []
+                const datasets = payload.datasets || []
+                const getSeries = (name) => datasets.find(d => (d.label || '').toUpperCase() === name)?.data || []
+                multiLineChartData.value[range] = {
+                    labels,
+                    info: getSeries('INFO'),
+                    warning: getSeries('WARNING'),
+                    error: getSeries('ERROR'),
+                }
+            } catch (e) {
+                console.error('Failed load log trends', e)
+            }
+        }
+
+        // Computed properties untuk multi-line chart
+        const currentChartData = computed(() => multiLineChartData.value[selectedPeriod.value])
+        const chartLabels = computed(() => currentChartData.value.labels)
+
+        // Legacy chart data (untuk kompatibilitas)
+        const chartData = ref([12450, 9320, 8745, 15230, 22340, 28450, 31250, 29870, 33450, 30120, 25890, 21340])
+
+        // Generate points untuk setiap level log
+        const infoPoints = computed(() => {
+            const data = currentChartData.value.info
+            const maxValue = Math.max(...data, ...currentChartData.value.warning, ...currentChartData.value.error)
+            return data.map((value, index) => ({
+                x: (index * 800) / (data.length - 1),
+                y: 280 - (value / maxValue) * 260
+            }))
+        })
+
+        const warningPoints = computed(() => {
+            const data = currentChartData.value.warning
+            const maxValue = Math.max(...currentChartData.value.info, ...data, ...currentChartData.value.error)
+            return data.map((value, index) => ({
+                x: (index * 800) / (data.length - 1),
+                y: 280 - (value / maxValue) * 260
+            }))
+        })
+
+        const errorPoints = computed(() => {
+            const data = currentChartData.value.error
+            const maxValue = Math.max(...currentChartData.value.info, ...currentChartData.value.warning, ...data)
+            return data.map((value, index) => ({
+                x: (index * 800) / (data.length - 1),
+                y: 280 - (value / maxValue) * 260
+            }))
+        })
+
+        // Generate line points untuk SVG polyline
+        const infoLinePoints = computed(() => infoPoints.value.map(p => `${p.x},${p.y}`).join(' '))
+        const warningLinePoints = computed(() => warningPoints.value.map(p => `${p.x},${p.y}`).join(' '))
+        const errorLinePoints = computed(() => errorPoints.value.map(p => `${p.x},${p.y}`).join(' '))
+
+        // Legacy chart data (untuk kompatibilitas)
         const chartPoints = computed(() => {
             const maxValue = Math.max(...chartData.value)
             const points = []
@@ -698,50 +856,44 @@ export default {
             return `0,300 ${points} 800,300`
         })
 
+        const appPerformance = ref({ total: 0, items: [] })
+        const loadAppPerformance = async (range = '30d') => {
+            try {
+                const res = await getAppPerformance(range)
+                appPerformance.value = res?.data || { total: 0, items: [] }
+            } catch (e) {
+                console.error('Failed load app performance', e)
+            }
+        }
+
         const topApps = computed(() => {
-            if (!apiData.value) return []
-            const byApp = apiData.value.data.avg_duration?.by_app || []
-            return byApp.map((app, index) => {
-                const violation = violationsByApp.value.find(v => v.app_name === app.app)
-                const violationCount = violation?.count || 0
-                let status = 'healthy'
-                const activeApp = activeAppsData.value.find(a => a.name === app.app)
-                if (activeApp && app.avg_duration_ms > activeApp.max_duration * 0.8) status = 'warning'
-                if (activeApp && app.avg_duration_ms > activeApp.max_duration) status = 'critical'
-                const gradients = [
-                    'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-                    'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-                    'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-                    'linear-gradient(135deg, #fa709a 0%, #fee140 100%)'
-                ]
+            const items = appPerformance.value.items || []
+            const gradients = [
+                'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+                'linear-gradient(135deg, #fa709a 0%, #fee140 100%)'
+            ]
+            return items.map((app, index) => {
+                const name = (app.app_name || '').toString()
+                const status = (app.status || 'good') === 'good' ? 'healthy' : (app.status || 'warning')
                 return {
-                    name: app.app.charAt(0).toUpperCase() + app.app.slice(1),
+                    name: name.charAt(0).toUpperCase() + name.slice(1),
                     version: 'v1.0.0',
-                    logs: app.count,
-                    avgDuration: Math.round(app.avg_duration_ms),
+                    logs: app.total_logs || 0,
+                    avgDuration: Math.round(app.avg_duration_ms || 0),
                     status: status,
                     trend: 0,
                     color: gradients[index % gradients.length],
-                    violations: violationCount
+                    violations: 0
                 }
-            }).sort((a, b) => b.logs - a.logs)
+            })
         })
 
-        const recentViolations = ref([
-            { app: 'Payment Service', message: 'process_transaction', time: '2 min ago', overage: 145, icon: '🔥', color: '#dc2626' },
-            { app: 'Analytics Engine', message: 'generate_report', time: '8 min ago', overage: 89, icon: '⚠️', color: '#ea580c' },
-            { app: 'Notification API', message: 'send_email', time: '15 min ago', overage: 67, icon: '⚡', color: '#f59e0b' },
-            { app: 'User Management', message: 'update_profile', time: '23 min ago', overage: 124, icon: '🔥', color: '#dc2626' },
-            { app: 'Auth Service', message: 'validate_token', time: '31 min ago', overage: 56, icon: '⚡', color: '#f59e0b' }
-        ])
-
-        const healthIndicators = ref([
-            { name: 'System Uptime', value: 99.8, status: 'good', icon: '⚡', description: 'Excellent' },
-            { name: 'Response Time', value: 87.3, status: 'good', icon: '⏱️', description: 'Good' },
-            { name: 'Error Rate', value: 96.2, status: 'good', icon: '✅', description: 'Very Low' },
-            { name: 'Throughput', value: 73.4, status: 'warning', icon: '📊', description: 'Moderate' }
-        ])
+        const recentViolations = computed(() => {
+            return apiData.value?.data?.recent_violations || []
+        })
 
         const getHealthStatus = (value) => value >= 80 ? 'GOOD' : value >= 60 ? 'WARNING' : 'CRITICAL'
         const getHealthBorderClass = (value) => value >= 80 ? 'border-l-4 border-emerald-500' : value >= 60 ? 'border-l-4 border-yellow-500' : 'border-l-4 border-red-500'
@@ -760,6 +912,62 @@ export default {
             { name: 'Queue', count: 87456, percentage: 7.0, icon: '📬', gradient: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)' },
             { name: 'Webhooks', count: 28710, percentage: 2.3, icon: '🪝', gradient: 'linear-gradient(135deg, #30cfd0 0%, #330867 100%)' }
         ])
+
+        // Smart labeling functions
+        const getSmartLabels24H = () => {
+            // Show every 4th hour: 00:00, 04:00, 08:00, 12:00, 16:00, 20:00
+            return chartLabels.value.filter((_, index) => index % 4 === 0)
+        }
+
+        const getSmartLabels30D = () => {
+            // Show every 5th day: D-29, D-24, D-19, D-14, D-9, D-4, Today
+            return chartLabels.value.filter((_, index) => index % 5 === 0)
+        }
+
+        const getTimeRangeLabel = () => {
+            switch (selectedPeriod.value) {
+                case '24h':
+                    return 'Last 24 Hours'
+                case '7d':
+                    return 'Last 7 Days'
+                case '30d':
+                    return 'Last 30 Days'
+                default:
+                    return ''
+            }
+        }
+
+        // Enhanced tooltip functions
+        const showTooltip = (event, level, value, time) => {
+            const rect = event.currentTarget.closest('.relative').getBoundingClientRect()
+            tooltip.value = {
+                visible: true,
+                x: event.clientX - rect.left,
+                y: event.clientY - rect.top - 50,
+                level: level,
+                time: time,
+                value: value,
+                source: 'line'
+            }
+        }
+
+        const hideTooltip = () => {
+            tooltip.value.visible = false
+        }
+
+        const moveTooltip = (event) => {
+            const rect = event.currentTarget.closest('.relative').getBoundingClientRect()
+            tooltip.value.x = event.clientX - rect.left
+            tooltip.value.y = event.clientY - rect.top - 50
+        }
+
+        const getTotalLogs = () => {
+            const data = currentChartData.value
+            const totalInfo = data.info.reduce((sum, val) => sum + val, 0)
+            const totalWarning = data.warning.reduce((sum, val) => sum + val, 0)
+            const totalError = data.error.reduce((sum, val) => sum + val, 0)
+            return (totalInfo + totalWarning + totalError).toLocaleString()
+        }
 
         const updateLastUpdated = () => {
             const now = new Date()
@@ -786,8 +994,18 @@ export default {
 
         onMounted(() => {
             fetchDashboardData()
+            loadAppPerformance('30d')
+            // initial load untuk period default
+            loadLogTrends(selectedPeriod.value)
             const interval = setInterval(() => fetchDashboardData(), 30000)
             onUnmounted(() => clearInterval(interval))
+        })
+
+        // Reload chart ketika period berubah
+        watch(selectedPeriod, (val) => {
+            if (!multiLineChartData.value[val] || (multiLineChartData.value[val].labels || []).length === 0) {
+                loadLogTrends(val)
+            }
         })
 
         return {
@@ -797,9 +1015,17 @@ export default {
             stats: processedStats,
             topApps,
             recentViolations,
-            healthIndicators,
             messageTypes,
+            // Multi-line chart properties
             chartLabels,
+            currentChartData,
+            infoPoints,
+            warningPoints,
+            errorPoints,
+            infoLinePoints,
+            warningLinePoints,
+            errorLinePoints,
+            // Legacy chart properties (untuk kompatibilitas)
             chartPoints,
             chartLinePoints,
             chartAreaPoints,
@@ -811,6 +1037,20 @@ export default {
             refreshDashboard,
             activeAppsData,
             violationsByApp,
+            // Smart labeling functions
+            getSmartLabels24H,
+            getSmartLabels30D,
+            getTimeRangeLabel,
+            // Enhanced tooltip functions
+            showTooltip,
+            hideTooltip,
+            moveTooltip,
+            getTotalLogs,
+            // Legend interaction functions (line chart)
+            selectedLogLevel,
+            toggleLogLevel,
+            isLogLevelSelected,
+            isLogLevelVisible,
             avgDurationByApp,
             logLevelDistribution,
             totalLogsFromDistribution,
@@ -1007,5 +1247,96 @@ svg circle:hover {
 p {
     margin-bottom: 0 !important;
     line-height: 1.25 !important;
+}
+
+/* Chart-specific styles to override conflicts */
+.chart-legend {
+    position: relative;
+    z-index: 10;
+}
+
+.legend-item {
+    position: relative;
+    z-index: 10;
+}
+
+.legend-dot {
+    flex-shrink: 0;
+}
+
+.legend-text {
+    white-space: nowrap;
+}
+
+.chart-tooltip {
+    position: absolute !important;
+    z-index: 9999 !important;
+    pointer-events: none !important;
+    max-width: 200px;
+    word-wrap: break-word;
+}
+
+.tooltip-level,
+.tooltip-time,
+.tooltip-value {
+    line-height: 1.2;
+    margin-bottom: 2px;
+}
+
+.tooltip-value {
+    margin-bottom: 0;
+}
+
+.chart-labels-container {
+    min-height: 40px;
+}
+
+.chart-range-indicator {
+    z-index: 10;
+}
+
+.chart-labels {
+    position: relative;
+    z-index: 5;
+    margin-top: 20px;
+}
+
+.chart-label {
+    flex-shrink: 0;
+    white-space: nowrap;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chart-indicators {
+    z-index: 10;
+}
+
+.chart-hover-hint,
+.chart-total-logs {
+    white-space: nowrap;
+}
+
+/* Override any conflicting styles from argon-dashboard */
+.chart-labels-container * {
+    position: static !important;
+}
+
+.chart-tooltip * {
+    position: static !important;
+}
+
+/* Ensure proper spacing for different periods */
+.chart-labels[data-period="24h"] .chart-label {
+    min-width: 50px;
+}
+
+.chart-labels[data-period="30d"] .chart-label {
+    min-width: 40px;
+}
+
+.chart-labels[data-period="7d"] .chart-label {
+    min-width: 60px;
 }
 </style>

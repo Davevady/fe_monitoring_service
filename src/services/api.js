@@ -41,11 +41,11 @@ export async function createAppRule(payload) {
     return unwrap(res)
 }
 export async function updateAppRule(id, payload) {
-    const res = await api.put(`/rules/app/${id}`, payload)
+    const res = await api.put(`/update/rules/app/${id}`, payload)
     return unwrap(res)
 }
 export async function deleteAppRule(id) {
-    const res = await api.delete(`/rules/app/${id}`)
+    const res = await api.delete(`/delete/rules/app/${id}`)
     return unwrap(res)
 }
 
@@ -64,11 +64,11 @@ export async function createMessageRule(payload) {
     return unwrap(res)
 }
 export async function updateMessageRule(id, payload) {
-    const res = await api.put(`/rules/message/${id}`, payload)
+    const res = await api.put(`/update/rules/message/${id}`, payload)
     return unwrap(res)
 }
 export async function deleteMessageRule(id) {
-    const res = await api.delete(`/rules/message/${id}`)
+    const res = await api.delete(`/delete/rules/message/${id}`)
     return unwrap(res)
 }
 
@@ -91,6 +91,19 @@ export async function getViolationsByApp(params = {}) {
 export async function getViolationsByMessage(params = {}) {
     const res = await api.get('/monitor/violation/by-message', { params })
     return unwrap(res)
+}
+
+/* Log trends for Dashboard line chart */
+export async function getLogTrends(range = '7d') {
+    // Expected ranges: '24h', '7d', '30d'
+    const res = await api.get('/dashboard/log-trends', { params: { range } })
+    return res.data // keep full payload: { status, data: { labels, datasets, summary }, meta }
+}
+
+/* App performance for Dashboard table */
+export async function getAppPerformance(range = '30d') {
+    const res = await api.get('/dashboard/app-performance', { params: { range } })
+    return res.data // { status, data: { total, items: [...] }, meta }
 }
 
 export default api
