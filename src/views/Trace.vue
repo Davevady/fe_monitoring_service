@@ -5,7 +5,7 @@
             <div
                 class="relative flex flex-col min-w-0 break-words bg-white border-0 shadow-xl dark:bg-slate-850 dark:shadow-dark-xl rounded-2xl bg-clip-border">
                 <div class="border-black/12.5 rounded-t-2xl border-b-0 border-solid p-6">
-                    <router-link to="/"
+                    <router-link to="/monitoring"
                         class="inline-flex items-center mb-4 text-sm font-semibold transition-colors text-slate-500 hover:text-blue-500">
                         <i class="fas fa-arrow-left mr-2"></i>
                         Back to Monitoring
@@ -259,7 +259,7 @@
                         <code
                             class="px-2 py-1 text-xs font-semibold rounded-lg bg-slate-200 text-slate-800">{{ correlation }}</code>
                     </p>
-                    <router-link to="/"
+                    <router-link to="/monitoring"
                         class="inline-block px-6 py-3 mb-0 text-xs font-bold text-center text-white uppercase align-middle transition-all ease-in border-0 rounded-lg shadow-md cursor-pointer leading-normal tracking-tight-rem bg-gradient-to-tl from-blue-500 to-violet-500 hover:shadow-xs hover:-translate-y-px active:opacity-85">
                         <i class="fas fa-arrow-left mr-2"></i>
                         Back to Monitoring

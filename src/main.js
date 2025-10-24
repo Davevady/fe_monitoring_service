@@ -1,11 +1,15 @@
+// main.js
 import { createApp } from 'vue'
+import { useAuth } from './composables/useAuth'
 import App from './App.vue'
 import router from './router'
+import './style.css'
 
-// Import Argon Dashboard Tailwind CSS
-import './assets/css/argon-dashboard-tailwind.css'
-import '@fortawesome/fontawesome-free/css/all.min.css'
+const app = createApp(App)
 
-createApp(App)
-    .use(router)
-    .mount('#app')
+// ✅ Restore auth state sebelum mount app
+const { restoreAuthState } = useAuth()
+restoreAuthState()
+
+app.use(router)
+app.mount('#app')
